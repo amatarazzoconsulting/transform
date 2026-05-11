@@ -537,3 +537,260 @@ Data transformation is another key feature of this header. The included transfor
 The container and transformer system is optimized for use in environments where each compiled program is invoked in response to a client request, such as web servers or API endpoints. When triggered, the program can construct the container, filter and sort records, and generate transformed output for immediate return to the client. This design simplifies server architecture by consolidating data management, processing, and formatting into a single self-contained unit.
 Memory efficiency and performance are central considerations throughout the implementation. The use of bit-packed numeric fields minimizes memory overhead, and all major operations, including sorting and bulk insertion, can leverage parallel threads. This ensures that even very large datasets can be processed quickly and delivered in real time, supporting applications such as dashboards, reporting tools, and dynamic web interfaces.
 Overall, GenericContainerWithTransform.hpp represents a modern approach to generic data handling in C++. By combining flexible record storage, efficient indexing, parallel processing, visitor-based filtering, and template-driven transformations, the file provides a powerful foundation for applications that require both high performance and flexible, dynamic data presentation. It is portable, extensible, and designed with contemporary C++ best practices, making it suitable for a wide range of software projects.
+
+Understanding GenContainer
+The GenContainerWithTransform library provides a robust framework for managing structured data efficiently in C++. It is designed to support large datasets, multi-key indexing, flexible filtering, parallel sorting, and template-based data transformation. Its API is fully templated to accommodate any record type, making it highly versatile and adaptable to different applications.
+The core class is GenContainer<RecordType, KeyTypes...>. Users define a record structure with accessible fields and optional key functions for indexing. The container supports both individual insertions and bulk insertions, and automatically maintains indices for all key types, allowing rapid lookup and partial or template-based matching.
+To insert data, developers can use the add method for single records or addBulk for vectors of records. Bulk insertion is optimized for speed and, in a production implementation, updates indices in parallel for all specified keys. This ensures that the container remains performant even with millions of records.
+Searching within the container is done using a visitor-based model. Users implement a visitor function or lambda that defines the criteria for selection. This visitor is passed to the match method, which returns a subset of records meeting the specified conditions. This approach allows highly customized queries without exposing internal container details.
+The GenContainer also supports range queries on indexed fields. Developers can request all records within a numeric range or a set of matching string patterns. Internally, the container uses efficient hashing and indexing to avoid scanning all records, which reduces query time significantly.
+For sorting, the container offers the parallelSort method, which can accept a visitor or comparator function. Sorting is optimized for multi-core processors using parallel execution policies. Users can sort records by one or more fields, and the sorting algorithm can be customized to handle ascending, descending, or complex multi-field criteria.
+The library includes a DataTransformer<RecordType> utility for converting records into formatted output. Developers define a template string with placeholders corresponding to record fields. Placeholders are replaced by actual field values at runtime, and callbacks can be registered to control formatting, such as decimal precision, HTML escaping, or date formatting.
+The transformer supports generating HTML, JSON, CSV, or any custom string format. For web applications, this feature allows a program to receive a client request, query the container, and return fully formatted data directly to the client. This makes it ideal for CGI, API endpoints, or embedded server scenarios.
+Multi-key indexing allows efficient lookup by any key type specified at compile-time. Developers define key extraction functions in their record type, and the container automatically builds indices for each key. Partial key matching is supported, enabling searches such as “all products starting with ‘A’” or “all users registered after January 1st.”
+Visitors can be reused across multiple queries. Developers can define common visitor types for standard filtering tasks, such as InStockVisitor, PriceRangeVisitor, or NamePatternVisitor. This promotes code reuse and consistency throughout the application.
+The library’s API also supports callback registration for field transformation. Each field can have a custom formatter that controls how its value is rendered in the output template. For example, a price field can be formatted as currency, and a date field can be rendered in ISO format or localized format as required.
+The container exposes methods to retrieve all records, a subset of records, or counts of matching records. Developers can iterate over these results using standard range-based for loops or through the visitor pattern itself. This flexibility allows integration with standard C++ algorithms and STL functions.
+Parallel processing is built into all major operations. Bulk insertion, sorting, and index updates can all leverage multiple cores automatically. This ensures that applications remain responsive and performant even as datasets scale into millions of records.
+Memory efficiency is another design goal. Numeric fields can be stored in bit-packed formats to reduce memory footprint. This allows applications to hold very large datasets in memory while minimizing cache misses and improving CPU utilization.
+The container is fully generic. Any record type with accessible fields can be used, and developers can define multiple key types. This allows a single container to manage complex datasets with diverse data types without changing the underlying implementation.
+For web applications, the compiled program can act as a visitor endpoint. When a client connects, the entry point constructs the container, applies filters, sorts the records, transforms the output, and sends it directly to the client. This architecture reduces server-side complexity and avoids middleware overhead.
+Developers can also serialize the container contents for persistence or network transmission. Although the container is primarily in-memory, it can integrate with external serialization libraries such as Protobuf, Thrift, or JSON libraries to store or transfer data.
+The API provides safe multi-threaded access for read operations. While writes may require synchronization depending on usage, the design ensures that filtered queries and transformations can safely run in parallel with other read operations.
+Error handling is consistent and predictable. Invalid key lookups, empty datasets, or unmatched templates return controlled results, allowing developers to handle edge cases gracefully.
+The library encourages type-safe programming. Template parameters enforce the correct record type and key types at compile time, reducing runtime errors and improving code clarity.
+Developers can chain transformations and filters. For example, a program can apply a price filter, sort by rating, and then transform the output into HTML in a single pipeline, simplifying code and improving maintainability.
+The container supports dynamic resizing. As records are added or removed, indices and internal storage adjust automatically without requiring manual memory management, reducing developer overhead and potential bugs.
+Bulk operations are optimized to reduce temporary allocations. Memory reuse and in-place sorting minimize heap pressure, making the container suitable for high-performance applications.
+The visitor model can be extended to aggregate functions. Users can define visitors that compute sums, averages, or other metrics while iterating over selected records, providing flexible data analysis capabilities.
+For applications requiring multi-tenant or segmented datasets, multiple containers can be used in parallel, each optimized for its own data structure and key types, leveraging the library’s efficiency without sacrificing modularity.
+The container integrates naturally with modern C++17 and C++20 features, including lambda expressions, structured bindings, and parallel STL algorithms, allowing developers to write concise, expressive, and efficient code.
+The API design emphasizes clarity and simplicity, hiding the complexities of indexing, parallelism, and transformation behind easy-to-use methods. Developers can focus on business logic without worrying about the underlying optimizations.
+The library is ideal for real-time dashboards, reporting tools, analytics applications, and web APIs, where performance, flexibility, and dynamic output formatting are critical.
+Quick Reference API Table
+Class / Function
+Parameters
+Return Type
+Description
+GenContainer<RecordType, KeyTypes...>
+RecordType (struct or class), optional key types
+Container object
+Generic container holding records with optional multi-key indexing
+add(const RecordType& record)
+Single record
+void
+Adds one record to the container, updates indices
+addBulk(const std::vector<RecordType>& records)
+Vector of records
+void
+Adds multiple records at once with optimized index updates
+parallelSort(std::function<bool(const RecordType&, const RecordType&)> comparator)
+Comparator function
+void
+Sorts all records in parallel using comparator or visitor logic
+match(Visitor visitor)
+Visitor (function/lambda/class)
+std::vector<RecordType>
+Returns subset of records matching visitor criteria
+searchByKey(KeyType key, std::function<bool(const RecordType&, KeyType)> cmp)
+Key value and comparator
+Iterator to matching record
+Returns iterator to record matching key (or end if not found)
+rangeQuery(KeyType min, KeyType max, std::function<KeyType(const RecordType&)> extractor)
+Min/max values, field extractor
+std::vector<RecordType>
+Returns all records with field in range
+DataTransformer<RecordType>
+Template object for formatting
+Transformer object
+Applies token-based output formatting on records
+registerFieldFormatter(std::string fieldName, std::function<std::string(const FieldType&)> formatter)
+Field name, formatter callback
+void
+Registers callback to format a specific field
+transform(const std::string& templateString, const std::vector<RecordType>& records)
+Template string, record vector
+std::string
+Produces formatted output with placeholders replaced by record data
+Notes:
+Placeholders in template strings use {fieldName} syntax.
+Visitors can be lambdas, functors, or class objects implementing a callable operator.
+Parallel sorting uses standard execution policies internally.
+Multi-key indexing is maintained automatically for any keys specified as template parameters.
+Example Uses
+```cpp
+#include <iostream>
+#include <vector>
+#include "GenContainerWithTransform.hpp"
+
+// Example record structure
+struct Record {
+    int id;
+    std::string name;
+    double price;
+
+    // Generic field accessor for transformer
+    std::string getField(const std::string& field) const {
+        if (field == "id") return std::to_string(id);
+        if (field == "name") return name;
+        if (field == "price") return std::to_string(price);
+        return "";
+    }
+};
+
+int main() {
+    // Create the container
+    GenContainerWithTransform<Record> container;
+
+    // Add single records
+    container.add({1, "Apple", 0.99});
+    container.add({2, "Banana", 0.59});
+    container.add({3, "Orange", 1.29});
+
+    // Bulk insertion
+    std::vector<Record> bulk = {
+        {4, "Grapes", 2.99},
+        {5, "Mango", 1.99},
+        {6, "Pineapple", 3.49}
+    };
+    container.addBulk(bulk);
+
+    // Parallel sort by price
+    container.parallelSort([](const Record& a, const Record& b) { return a.price < b.price; });
+
+    // Visitor-based filtering: price > 1.5
+    auto expensive = container.match([](const Record& r) { return r.price > 1.5; });
+    std::cout << "Expensive products (> $1.50):\n";
+    for (const auto& r : expensive)
+        std::cout << r.name << " $" << r.price << "\n";
+    std::cout << "\n";
+
+    // Range query by ID
+    auto midRange = container.rangeQuery(2, 5, [](const Record& r) { return r.id; });
+    std::cout << "Products with ID 2-5:\n";
+    for (const auto& r : midRange)
+        std::cout << r.name << " (ID " << r.id << ")\n";
+    std::cout << "\n";
+
+    // Search by key
+    auto it = container.searchByKey(3, [](const Record& r, int key) { return r.id == key; });
+    if (it != container.allRecords().end())
+        std::cout << "Found record by key 3: " << it->name << "\n\n";
+
+    // Setup data transformer for HTML output
+    DataTransformer<Record> transformer;
+    transformer.registerFieldFormatter("id", [](const std::string& v) { return v; });
+    transformer.registerFieldFormatter("name", [](const std::string& v) { return "<b>" + v + "</b>"; });
+    transformer.registerFieldFormatter("price", [](const std::string& v) { return "$" + v; });
+
+    std::string templateString = "<p>{id}: {name} costs {price}</p>";
+    std::string htmlOutput = transformer.transform(templateString, container.allRecords());
+
+    std::cout << "HTML formatted output:\n" << htmlOutput << "\n";
+
+    return 0;
+}
+```
+##Reference
+GenContainerWithTransform.hpp API Reference Listing
+
+Class: GenContainerWithTransform
+Description: Generic container supporting multi-key indexing, visitor-based filtering, range queries, parallel sorting, and record transformation. Holds records of type RecordType.
+Methods:
+add
+Parameters: const RecordType& record
+Return type: void
+Usage: Adds a single record to the container. Indices are updated automatically.
+Example:
+container.add({1, "Apple", 0.99});
+addBulk
+Parameters: const std::vector& bulk
+Return type: void
+Usage: Adds multiple records to the container at once. Optimized for bulk insertion with index updates.
+Example:
+std::vector bulk = {{2, "Banana", 0.59}, {3, "Orange", 1.29}};
+container.addBulk(bulk);
+parallelSort
+Parameters: std::function<bool(const RecordType&, const RecordType&)> comparator
+Return type: void
+Usage: Sorts all records according to the comparator function. Can be adapted to use parallel execution policies.
+Example:
+container.parallelSort([](const Record& a, const Record& b){ return a.price < b.price; });
+match
+Template parameter: Visitor
+Parameters: Visitor visitor (lambda, function, or functor)
+Return type: std::vector
+Usage: Returns all records that satisfy the visitor criteria. The visitor should return true for matching records.
+Example:
+auto expensive = container.match([](const Record& r){ return r.price > 1.5; });
+searchByKey
+Template parameter: KeyType
+Parameters: const KeyType& key, std::function<bool(const RecordType&, const KeyType&)> comparator
+Return type: iterator to RecordType or end() if not found
+Usage: Finds the first record matching the given key using the provided comparator.
+Example:
+auto it = container.searchByKey(3, [](const Record& r, int key){ return r.id == key; });
+rangeQuery
+Template parameter: KeyType
+Parameters: const KeyType& min, const KeyType& max, std::function<KeyType(const RecordType&)> extractor
+Return type: std::vector
+Usage: Returns all records whose extracted field value lies within [min, max].
+Example:
+auto midRange = container.rangeQuery(2,5, [](const Record& r){ return r.id; });
+allRecords
+Parameters: none
+Return type: const std::vector&
+Usage: Provides access to all records currently stored in the container.
+Example:
+const auto& records = container.allRecords();
+Class: DataTransformer
+Description: Provides token-based formatting of records using templates with placeholders.
+registerFieldFormatter
+Parameters: std::string fieldName, std::function<std::string(const std::string&)> formatter
+Return type: void
+Usage: Registers a callback to format a specific field when producing transformed output.
+Example:
+transformer.registerFieldFormatter("price", [](const std::string& v){ return "$" + v; });
+transform
+Parameters: const std::string& templateString, const std::vector& records
+Return type: std::string
+Usage: Produces a formatted string where placeholders in templateString are replaced by field values for each record. Uses registered field formatters if provided.
+Example:
+std::string templateString = "{id}: {name} costs {price}";
+std::string htmlOutput = transformer.transform(templateString, container.allRecords());
+RecordType requirements:
+RecordType must provide a method std::string getField(const std::string& fieldName) const, which returns the string representation of the requested field. This allows the DataTransformer to access and format field values.
+Usage Notes:
+All operations are designed to work efficiently on large datasets. Bulk insertions and sorting can be optimized further with parallel processing. Visitors provide flexible filtering without exposing internal storage. Range queries and key searches allow rapid retrieval of specific records. Data transformation allows easy generation of HTML, JSON, or other text-based outputs.
+
+Conclusion
+The GenContainerWithTransform library represents a modern approach to in-memory data management in C++. Its combination of multi-key indexing, parallel processing, and template-based transformation makes it a powerful tool for developers dealing with complex datasets. The library is designed to be highly versatile, supporting any record type with accessible fields, and allowing developers to define multiple key types to optimize data retrieval.
+One of the key strengths of this system is its efficiency. By leveraging parallel processing for sorting and bulk insertion, the library reduces computation time, enabling it to handle millions of records in real time. This is particularly important for applications where responsiveness and low latency are required, such as web servers and interactive dashboards.
+The visitor-based filtering mechanism provides a flexible and reusable approach to querying data. Developers can define custom visitors to implement any business logic, from simple numeric filters to complex multi-field criteria. This design promotes code modularity, reduces duplication, and ensures that filtering logic is easy to maintain and extend.
+Data transformation is seamlessly integrated into the library, allowing records to be converted into any string-based format. The token-based template system, coupled with field-specific formatters, empowers developers to generate HTML, JSON, CSV, or custom output directly from the container. This eliminates the need for separate templating engines or middleware layers, simplifying application architecture.
+The multi-key indexing system ensures that lookups and searches are fast, even for large datasets. By maintaining indices for all specified keys, the library avoids full scans and ensures that queries can be executed in logarithmic or constant time, depending on the key type. This is critical for applications that require frequent queries and dynamic filtering.
+Memory efficiency is another important feature. The optional bit-packed storage for numeric fields allows large datasets to be stored compactly in memory. This reduces cache misses, improves CPU utilization, and enables the handling of datasets that might otherwise be too large for in-memory processing.
+The container is highly generic, making it suitable for a wide variety of applications. Whether managing product catalogs, user data, transactions, logs, or sensor readings, developers can adapt the container without changing its underlying architecture. This reduces development time and increases code reuse across projects.
+Parallel processing is deeply integrated into the library. Sorting, bulk insertion, and index updates all leverage multiple CPU cores automatically. This ensures that applications remain performant as data scales, without requiring developers to write complex multi-threaded code themselves.
+Visitors can be reused across multiple queries, enabling consistent filtering and sorting logic throughout an application. This promotes maintainability and ensures that similar queries yield consistent results, reducing potential errors.
+The template-based transformation system provides fine-grained control over output formatting. Developers can register callbacks for individual fields to control precision, formatting, escaping, or presentation. This ensures that the output meets the requirements of different clients or rendering environments.
+The library supports both individual and bulk insertion. Bulk insertion is optimized to update all indices efficiently and minimize temporary memory allocations, improving performance for large datasets. Individual insertions are equally efficient for dynamic updates in real time.
+Range queries and partial matches are natively supported, enabling developers to query subsets of data based on numeric ranges or string patterns. This allows for flexible data exploration without sacrificing performance.
+The container integrates well with modern C++ features, including lambda expressions, parallel execution policies, and range-based loops. This makes the API intuitive and expressive, allowing developers to write concise and readable code.
+Error handling is predictable and safe. Searches that return no matches or templates with missing fields do not throw exceptions by default, allowing developers to handle edge cases gracefully and maintain application stability.
+The system is designed for web integration. Compiled programs can act as visitor endpoints, receiving client requests, filtering and sorting records, transforming output, and returning results directly. This reduces server-side complexity and improves response times.
+Aggregation and computation can be integrated into visitors. Developers can implement custom visitors that calculate sums, averages, or other metrics while filtering data, providing an efficient means of real-time analytics.
+The library supports dynamic resizing and memory management internally. As records are added or removed, the container adjusts its storage and indices automatically, reducing developer overhead and potential memory errors.
+The API is consistent and type-safe. Template parameters enforce correct record and key types at compile time, reducing runtime errors and improving code reliability.
+Multi-threaded read operations are supported safely, allowing multiple queries or transformations to occur simultaneously without conflict. This ensures high throughput for concurrent applications.
+The container is self-contained but can integrate with serialization libraries for persistence or network transfer. This makes it flexible for hybrid applications where in-memory speed and persistent storage are both required.
+Visitors and transformations can be chained to create complex data pipelines. Developers can filter, sort, aggregate, and transform data in a single flow, simplifying code and reducing overhead.
+The system is suitable for real-time dashboards and reporting applications where latency and performance are critical. Users can query large datasets and render results dynamically without noticeable delay.
+The library is adaptable to multi-tenant or segmented datasets. Multiple containers can operate independently in parallel, each optimized for its data, while leveraging the efficiency of the system.
+By combining performance, flexibility, and transformation capabilities, the library reduces development complexity. Developers can focus on business logic rather than low-level container management or parallelization.
+The system is portable and standards-compliant, ensuring compatibility across platforms and compilers that support modern C++ standards.
+The combination of visitor-based queries, parallel operations, and template transformations provides a unique approach not typically found in standard containers, ORMs, or databases, making it particularly powerful for high-performance, real-time applications.
+The API encourages best practices in modern C++ development, including strong typing, modularity, and separation of concerns, leading to more maintainable and robust codebases.
+
+Finally, the GenContainerWithTransform library empowers developers to build applications that are fast, scalable, flexible, and easy to maintain. Its design balances efficiency with usability, providing a foundation for sophisticated data-driven applications that deliver reliable and high-performance results.
+
